@@ -155,5 +155,4 @@ async function transactionMethodsCollection() {
   console.log("Address: ", signer.address);
   // console.log("Balance: ", await signer.getBalance());
   // console.log("ChainID: ", await signer.getChainId());
-  console.log("Mnemonic: ", signer.mnemonic);
 })();
