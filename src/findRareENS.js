@@ -52,8 +52,8 @@ const main = async function () {
 
   // 查找 ENS 对应以太坊地址
   for (const ens of enss) {
-    const address = await findENS(ens);
-    const tempObj = { ens, address };
+    const address = await findENS(`${ens}.eth`);
+    const tempObj = { ens: `${ens}.eth`, address };
     address
       ? console.log(`😭 ${ens} 已经被 ${address} 注册了`)
       : console.log(`🚀 ${ens} 还可以注册，抓紧去注册！！！`);
