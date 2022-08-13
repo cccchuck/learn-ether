@@ -1,6 +1,6 @@
 const path = require('path')
 const axios = require('axios').default
-const { ethers } = require('ethers')
+const { ethers, BigNumber } = require('ethers')
 
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') })
 
@@ -55,56 +55,62 @@ function createContract(address, ABI, providerOrSigner) {
   return new ethers.Contract(address, ABI, providerOrSigner)
 }
 
-async function createTransaction() {
+async function createTransaction(to) {
   const feeData = await provider.getFeeData()
   const nonce = await provider.getTransactionCount(wallet.address)
-  const gasPrice = ethers.utils.formatUnits(feeData.gasPrice, 'gwei')
-  const maxPricePerGas = ethers.utils.formatUnits(feeData.maxFeePerGas, 'gwei')
-  const maxPriorityPerGas = ethers.utils.formatUnits(
+  const maxFeePerGas = ethers.utils.formatUnits(feeData.maxFeePerGas, 'gwei')
+  const maxPriorityFeePerGas = ethers.utils.formatUnits(
     feeData.maxPriorityFeePerGas,
     'gwei'
   )
-  return {
+
+  const tx = {
+    to,
     nonce,
-    gasPrice,
-    maxPricePerGas,
-    maxPriorityPerGas,
-    gasLimit: ethers.utils.hexlify(100000),
-    to: contractAddress,
-    value: ethers.utils.parseUnits('0.001'),
+    maxFeePerGas,
+    maxPriorityFeePerGas,
+    from: wallet.address,
+    value: ethers.utils.parseEther("0"),
   }
+
+  const gasLimit = await provider.estimateGas(tx)
+  console.log('Gas: ', gasLimit)
+
+  tx.gasLimit = gasLimit
+  return tx
 }
 
-function sendTransaction() {}
+async function sendTransaction() {
+  const to = '0xf07B2bc7dc938BA39a029187E256b495747bc935'
+  const signer = await wallet.connect(provider)
+
+  const feeData = await provider.getFeeData()
+  const nonce = await provider.getTransactionCount(wallet.address)
+
+  const tx = {
+    nonce,
+    from: wallet.address,
+    to: to,
+    value: ethers.utils.parseEther('0.01'),
+    maxFeePerGas: feeData.maxFeePerGas,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+  }
+
+  const gasLimit = await provider.estimateGas(tx)
+
+  tx.gasLimit = gasLimit
+
+  const transaction = await signer.sendTransaction(tx)
+
+  const hash = await transaction.wait()
+
+  console.log('Hash: ', hash)
+}
 
 async function main() {
-  const contractABI = await getContractABI(contractAddress)
-
-  if (contractABI.length) {
-    contract = createContract(contractAddress, contractABI, wallet)
-    console.log('Signer: ', contract.signer)
-  }
+  await sendTransaction()
 
   process.exit()
 }
 
-// main()
-
-// console.log(wallet)
-
-// async function foo() {
-//   wallet = wallet.connect(provider)
-//   console.log('Balance: ', await wallet.getBalance())
-//   console.log('ChainID: ', await wallet.getChainId())
-//   console.log('FeeData: ', await wallet.getFeeData())
-//   console.log('GasPrice: ', await wallet.getGasPrice())
-//   console.log('TransactionCount: ', await wallet.getTransactionCount())
-// }
-
-// foo()
-
-// createTransaction().then((tx) => {
-//   console.log(tx)
-// })
-
-console.log(ethers.utils.arrayify(ethers.utils.toUtf8CodePoints('mint')))
+main()
