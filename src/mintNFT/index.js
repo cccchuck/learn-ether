@@ -70,7 +70,7 @@ async function createTransaction(to) {
     maxFeePerGas,
     maxPriorityFeePerGas,
     from: wallet.address,
-    value: ethers.utils.parseEther("0"),
+    value: ethers.utils.parseEther('0'),
   }
 
   const gasLimit = await provider.estimateGas(tx)
