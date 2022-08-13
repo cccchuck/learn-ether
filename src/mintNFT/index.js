@@ -55,35 +55,7 @@ function createContract(address, ABI, providerOrSigner) {
   return new ethers.Contract(address, ABI, providerOrSigner)
 }
 
-async function createTransaction(to) {
-  const feeData = await provider.getFeeData()
-  const nonce = await provider.getTransactionCount(wallet.address)
-  const maxFeePerGas = ethers.utils.formatUnits(feeData.maxFeePerGas, 'gwei')
-  const maxPriorityFeePerGas = ethers.utils.formatUnits(
-    feeData.maxPriorityFeePerGas,
-    'gwei'
-  )
-
-  const tx = {
-    to,
-    nonce,
-    maxFeePerGas,
-    maxPriorityFeePerGas,
-    from: wallet.address,
-    value: ethers.utils.parseEther('0'),
-  }
-
-  const gasLimit = await provider.estimateGas(tx)
-  console.log('Gas: ', gasLimit)
-
-  tx.gasLimit = gasLimit
-  return tx
-}
-
-async function sendTransaction() {
-  const to = '0xf07B2bc7dc938BA39a029187E256b495747bc935'
-  const signer = await wallet.connect(provider)
-
+async function createTransaction(to, value) {
   const feeData = await provider.getFeeData()
   const nonce = await provider.getTransactionCount(wallet.address)
 
@@ -91,7 +63,7 @@ async function sendTransaction() {
     nonce,
     from: wallet.address,
     to: to,
-    value: ethers.utils.parseEther('0.01'),
+    value: ethers.utils.parseEther(value),
     maxFeePerGas: feeData.maxFeePerGas,
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
   }
@@ -100,6 +72,14 @@ async function sendTransaction() {
 
   tx.gasLimit = gasLimit
 
+  return tx
+}
+
+async function sendTransaction() {
+  const to = '0xf07B2bc7dc938BA39a029187E256b495747bc935'
+  const signer = await wallet.connect(provider)
+
+  const tx = await createTransaction(to, '0.01')
   const transaction = await signer.sendTransaction(tx)
 
   const hash = await transaction.wait()
@@ -113,4 +93,21 @@ async function main() {
   process.exit()
 }
 
-main()
+// main()
+
+function getMethodID(func) {
+  const bf = Buffer.from(func)
+  return ethers.utils.keccak256(bf).substring(0, 10)
+}
+
+function getData(func, count) {
+  const methodID = getMethodID(func)
+  // const count = ethers.utils.toUtf8Bytes
+}
+
+// console.log(Buffer.from(Number(1).toString(16)))
+
+const func = '0xa0712d68'
+const count = ethers.utils.hexValue(100).substring(2, 10).padStart(64, '0')
+
+console.log(func + count)
