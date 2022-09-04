@@ -1,53 +1,12 @@
 import axios from 'axios'
-import path from 'path'
 import { ethers } from 'ethers'
-import dotenv from 'dotenv'
-import IERC721 from './IERC721.json'
+import config from './config/index'
+import { createContract, getData } from './utils'
 
-interface ICommonConfig {
-  CID: string
-  MAX: number
-  GATEWAY: string
-  address: string
-  funcSignature: string
-  rarelyProperty: string[]
+// 创建 provider
+const provider = new ethers.providers.JsonRpcProvider(config.Provider)
 
-  Provider: string
-  Etherscan_Key: string
-  Private_Key: string
-}
-
-dotenv.config({ path: path.resolve(__dirname, '../../.env') })
-
-const { Provider, Etherscan_Key, Private_Key } = process.env
-
-const config: ICommonConfig = {
-  CID: 'QmNhKs1EvYUSUvxp4pNgi22cptYWHNzSkazJEoPqbErLkR',
-  MAX: 2500,
-  GATEWAY: 'https://opensea.mypinata.cloud/ipfs',
-  address: '0x28881d1683c6a8Dc6079Ebf3b0E9D414e9cf9150',
-  funcSignature: 'publicMint',
-  rarelyProperty: [],
-
-  Provider: Provider as string,
-  Etherscan_Key: Etherscan_Key as string,
-  Private_Key: Private_Key as string,
-}
-
-const provider = new ethers.providers.JsonRpcProvider(Provider)
-
-const contract = new ethers.Contract(config.address, IERC721)
-
-/**
- * 获取 NFT Image URL
- * @param data IPFS 返回的 NFT JSON 数据
- * @returns
- */
-const getImageUrl = <T extends { image: string }>(data: T): string => {
-  const { GATEWAY } = config
-  let image = data.image
-  return `${GATEWAY}/${image.split('//').pop()}`
-}
+const wallet = new ethers.Wallet(config.Private_Key, provider)
 
 /**
  * 遍历当前 ID 及之后所有包含稀有属性的 NFT
@@ -55,21 +14,23 @@ const getImageUrl = <T extends { image: string }>(data: T): string => {
  * @returns
  */
 const travelRarelyNFT = async (tokenID: number): Promise<number[]> => {
-  const { GATEWAY, CID, MAX, rarelyProperty } = config
+  const { GATEWAY, CID, MAX, rarelyProperty, endWithJson } = config
 
   const rarelyID: number[] = []
 
   for (let i = tokenID; i <= MAX; i++) {
     try {
-      let url: string = `${GATEWAY}/${CID}/${i}`
+      let url: string = `${GATEWAY}/${CID}/${i}${endWithJson ? '.json' : ''}`
 
       let resp = await axios.get(url)
 
       if (resp.status === 200) {
-        const attribute = resp.data['attribute']
+        const attributes = resp.data['attribute']
 
-        // 找到稀有属性的 NFT ID
-        if (attribute in rarelyProperty) rarelyID.push(i)
+        for (const attribute of attributes) {
+          const { value } = attribute
+          if (value in rarelyProperty) rarelyID.push(i)
+        }
       }
     } catch (error) {
       console.log('Error: ', error)
@@ -79,4 +40,66 @@ const travelRarelyNFT = async (tokenID: number): Promise<number[]> => {
   return rarelyID
 }
 
-travelRarelyNFT(1)
+const createTrasaction = async (funcSignature: string, count: number) => {
+  const data = getData(funcSignature, count)
+  const feeData = await provider.getFeeData()
+  const nonce = await provider.getTransactionCount(wallet.address)
+
+  let _tx = {
+    nonce,
+    data,
+    from: wallet.address,
+    to: config.address,
+    value: ethers.utils.parseEther(config.value * count * 1e18 + ''),
+    maxFeePerGas: feeData.maxFeePerGas as ethers.BigNumber,
+    maxPriorityFeePerGas: feeData.maxPriorityFeePerGas as ethers.BigNumber,
+  }
+
+  let tx = {
+    ..._tx,
+    gasLimit: await provider.estimateGas(_tx),
+  }
+
+  return tx
+}
+
+const sendTrasaction = async () => {
+  console.log('开始创建交易')
+  const tx = await createTrasaction(config.funcSignature, 1)
+
+  console.log('创建交易成功，准备发送交易')
+  const transaction = await wallet.sendTransaction(tx)
+
+  console.log('交易发送成功，正在等待确认')
+  const hash = await transaction.wait()
+
+  console.log('交易确认成功，交易信息如下: ')
+  console.log(`交易哈希: ${hash.transactionHash}`)
+  console.log(`确认区块: ${hash.blockNumber}`)
+  console.log(`燃料消费: ${hash.gasUsed.toNumber()}`)
+}
+
+const mintNFT = async () => {
+  await sendTrasaction()
+}
+
+;(async function () {
+  let rarelyID = await travelRarelyNFT(1)
+  console.log('Rarely ID List: ', rarelyID)
+  const contract = await createContract(config.address, provider)
+
+  console.log(`开始监听 ${config.EVENT} 事件`)
+  contract.on(config.EVENT, (from, to, _tokenID) => {
+    const tokenID = parseInt(_tokenID)
+    console.log(`⚠️ TokenID: ${tokenID} 已被 Mint`, tokenID)
+    console.log('\n------------------------\n')
+
+    // 过滤要 Mint 的 ID 列表
+    rarelyID = rarelyID.filter((e) => e >= tokenID)
+
+    if (rarelyID[0] === tokenID + 1) {
+      // Mint 操作
+      mintNFT()
+    }
+  })
+})()
