@@ -10,6 +10,7 @@ interface ICommonConfig {
   GATEWAY: string
   address: string
   funcSignature: string
+  rarelyProperty: string[]
 
   Provider: string
   Etherscan_Key: string
@@ -26,6 +27,7 @@ const config: ICommonConfig = {
   GATEWAY: 'https://opensea.mypinata.cloud/ipfs',
   address: '0x28881d1683c6a8Dc6079Ebf3b0E9D414e9cf9150',
   funcSignature: 'publicMint',
+  rarelyProperty: [],
 
   Provider: Provider as string,
   Etherscan_Key: Etherscan_Key as string,
@@ -50,9 +52,12 @@ const getImageUrl = <T extends { image: string }>(data: T): string => {
 /**
  * 遍历当前 ID 及之后所有包含稀有属性的 NFT
  * @param tokenID 当前 mint 的 ID
+ * @returns
  */
-const travelRarelyNFT = async (tokenID: number) => {
-  const { GATEWAY, CID, MAX } = config
+const travelRarelyNFT = async (tokenID: number): Promise<number[]> => {
+  const { GATEWAY, CID, MAX, rarelyProperty } = config
+
+  const rarelyID: number[] = []
 
   for (let i = tokenID; i <= MAX; i++) {
     try {
@@ -61,13 +66,17 @@ const travelRarelyNFT = async (tokenID: number) => {
       let resp = await axios.get(url)
 
       if (resp.status === 200) {
-        const imageUrl = getImageUrl(resp.data)
-        console.log(`ID: ${i} img url: ${imageUrl}`)
+        const attribute = resp.data['attribute']
+
+        // 找到稀有属性的 NFT ID
+        if (attribute in rarelyProperty) rarelyID.push(i)
       }
     } catch (error) {
       console.log('Error: ', error)
     }
   }
+
+  return rarelyID
 }
 
 travelRarelyNFT(1)
