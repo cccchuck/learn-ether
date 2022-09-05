@@ -1,12 +1,16 @@
 import axios from 'axios'
+
 import { ethers } from 'ethers'
-import config from './config/index'
-import { createContract, getData } from './utils'
+import { getConfig, IConfig } from './config/index'
+import { getContract, getData, getProvider, getWallet } from './utils'
 
 // 创建 provider
-const provider = new ethers.providers.JsonRpcProvider(config.Provider)
+const provider = getProvider()
 
-const wallet = new ethers.Wallet(config.Private_Key, provider)
+// 创建 wallet
+const wallet = getWallet()
+
+let config: IConfig
 
 /**
  * 遍历当前 ID 及之后所有包含稀有属性的 NFT
@@ -14,13 +18,13 @@ const wallet = new ethers.Wallet(config.Private_Key, provider)
  * @returns
  */
 const travelRarelyNFT = async (tokenID: number): Promise<number[]> => {
-  const { GATEWAY, CID, MAX, rarelyProperty, endWithJson } = config
+  const { GATEWAY, CID, MAX, rarelyValue, endWithJSON } = config
 
   const rarelyID: number[] = []
 
   for (let i = tokenID; i <= MAX; i++) {
     try {
-      let url: string = `${GATEWAY}/${CID}/${i}${endWithJson ? '.json' : ''}`
+      let url: string = `${GATEWAY}/${CID}/${i}${endWithJSON ? '.json' : ''}`
 
       let resp = await axios.get(url)
 
@@ -29,7 +33,7 @@ const travelRarelyNFT = async (tokenID: number): Promise<number[]> => {
 
         for (const attribute of attributes) {
           const { value } = attribute
-          if (value in rarelyProperty) rarelyID.push(i)
+          if (value in rarelyValue) rarelyID.push(i)
         }
       }
     } catch (error) {
@@ -50,7 +54,7 @@ const createTrasaction = async (funcSignature: string, count: number) => {
     data,
     from: wallet.address,
     to: config.address,
-    value: ethers.utils.parseEther(config.value * count * 1e18 + ''),
+    value: ethers.utils.parseEther(config.VALUE * count * 1e18 + ''),
     maxFeePerGas: feeData.maxFeePerGas as ethers.BigNumber,
     maxPriorityFeePerGas: feeData.maxPriorityFeePerGas as ethers.BigNumber,
   }
@@ -84,20 +88,26 @@ const mintNFT = async () => {
 }
 
 ;(async function () {
+  // 加载配置文件
+  config = await getConfig()
+
+  // 获取稀有 NFT ID
   let rarelyID = await travelRarelyNFT(1)
   console.log('Rarely ID List: ', rarelyID)
-  const contract = await createContract(config.address, provider)
 
+  // 获取 Contract
+  const contract = await getContract(config.address)
+
+  // 监听 MINT 事件
   console.log(`开始监听 ${config.EVENT} 事件`)
-  contract.on(config.EVENT, (from, to, _tokenID) => {
-    const tokenID = parseInt(_tokenID)
-    console.log(`⚠️ TokenID: ${tokenID} 已被 Mint`, tokenID)
-    console.log('\n------------------------\n')
+  contract.on(config.EVENT, (from, to, tokenID) => {
+    const _tokenID = parseInt(tokenID)
+    console.log(`⚠️ TokenID: ${_tokenID} 已被 Mint \n`)
 
     // 过滤要 Mint 的 ID 列表
-    rarelyID = rarelyID.filter((e) => e >= tokenID)
+    rarelyID = rarelyID.filter((e) => e >= _tokenID)
 
-    if (rarelyID[0] === tokenID + 1) {
+    if (rarelyID[0] === _tokenID + 1) {
       // Mint 操作
       mintNFT()
     }

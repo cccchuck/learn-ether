@@ -1,25 +1,21 @@
 import axios from 'axios'
 import dotenv from 'dotenv'
 import path from 'path'
-import { Contract as IContract, ContractInterface, ethers } from 'ethers'
+import {
+  ContractInterface,
+  ethers,
+  Contract as IContract,
+  Wallet as IWallet,
+} from 'ethers'
 import { Provider as IProvider } from '@ethersproject/abstract-provider'
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
 
 let provider: IProvider
 let contract: IContract
+let wallet: IWallet
 
-const { Provider, Etherscan_Key } = process.env
-
-/**
- * 获取 Provider
- * @returns
- */
-const getProvider = () => {
-  if (provider) return provider
-  provider = new ethers.providers.JsonRpcProvider(Provider)
-  return provider
-}
+const { Provider, Etherscan_Key, Private_Key } = process.env
 
 /**
  * 获取函数 ID
@@ -89,6 +85,34 @@ const createContract = async (
   }
 }
 
+const getBaseConfig = () => {
+  return {
+    Provider: Provider as string,
+    Private_Key: Private_Key as string,
+    Etherscan_Key: Etherscan_Key as string,
+  }
+}
+
+/**
+ * 获取 Provider
+ * @returns
+ */
+const getProvider = () => {
+  if (provider) return provider
+  provider = new ethers.providers.JsonRpcProvider(Provider)
+  return provider
+}
+
+/**
+ * 获取 Wallet
+ * @returns
+ */
+const getWallet = () => {
+  if (wallet) return wallet
+  wallet = new ethers.Wallet(Private_Key as string, getProvider())
+  return wallet
+}
+
 /**
  * 获取合约实例
  * @param address Contract Address
@@ -101,10 +125,11 @@ const getContract = async (address: string) => {
 }
 
 export {
+  getBaseConfig,
   getContractABI,
-  createContract,
   getMethodID,
   getData,
   getProvider,
+  getWallet,
   getContract,
 }

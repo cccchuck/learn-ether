@@ -1,70 +1,59 @@
-import path from 'path'
-import dotenv from 'dotenv'
-import { ethers } from 'ethers'
-import { createContract } from '../utils'
+import { getBaseConfig, getContract, getProvider } from '../utils'
 
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
+interface IBaseConfig {
+  Provider: string
+  Private_Key: string
+  Etherscan_Key: string
+}
 
-interface ICommonConfig {
+interface IContractConfig {
   CID?: string
-  endWithJson?: boolean
+  endWithJSON?: boolean
 
   MAX: number
   EVENT: string
-  value: number
+  VALUE: number
   GATEWAY: string
   address: string
   funcSignature: string
-  rarelyProperty: string[]
-
-  Provider: string
-  Etherscan_Key: string
-  Private_Key: string
+  rarelyValue: string[]
 }
 
-const { Provider, Etherscan_Key, Private_Key } = process.env
+type IConfig = IBaseConfig & IContractConfig
 
-const provider = new ethers.providers.JsonRpcProvider(Provider)
+const baseConfig: IBaseConfig = getBaseConfig()
 
-/**
- * 初始化 Config 对象
- */
-const initConfig = async <T extends ICommonConfig>(
-  baseConfig: T
-): Promise<ICommonConfig> => {
-  const { address } = baseConfig
-
-  try {
-    const contract = await createContract(address, provider)
-
-    if (contract) {
-      const IPFSAddress: string = await contract.tokenURI(1)
-      const endWithJSON = IPFSAddress.endsWith('.json')
-      const CID = IPFSAddress.split('/')[2]
-      return { ...baseConfig, CID, endWithJSON }
-    } else {
-      return baseConfig
-    }
-  } catch (error) {
-    console.log('Get IPFS Address Error: ', error)
-    return baseConfig
-  }
-}
-
-const baseConfig: ICommonConfig = {
+const contractConfig: IContractConfig = {
   MAX: 2500,
-  value: 0,
+  EVENT: 'Transfer',
+  VALUE: 0,
   GATEWAY: 'https://opensea.mypinata.cloud/ipfs',
   address: '0x28881d1683c6a8Dc6079Ebf3b0E9D414e9cf9150',
   funcSignature: 'publicMint',
-  rarelyProperty: [],
-  EVENT: 'Transfer',
-
-  Provider: Provider as string,
-  Etherscan_Key: Etherscan_Key as string,
-  Private_Key: Private_Key as string,
+  rarelyValue: [],
 }
 
-const config: ICommonConfig = { ...baseConfig, ...initConfig(baseConfig) }
+const loadContractConfig = async <T extends IContractConfig>(
+  contractConfig: T
+): Promise<IContractConfig> => {
+  const { address } = contractConfig
 
-export default config
+  try {
+    const contract = await getContract(address)
+    const IPFSAddress: string = await contract.tokenURI(1)
+    const endWithJSON = IPFSAddress.endsWith('.json')
+    const CID = IPFSAddress.split('/')[2]
+    return { ...contractConfig, CID, endWithJSON }
+  } catch (error) {
+    console.log('loadContractConfig Error: ', error)
+    return contractConfig
+  }
+}
+
+const getConfig = async (): Promise<IConfig> => {
+  const _baseConfig = baseConfig
+  const _contractConfig = await loadContractConfig(contractConfig)
+  return { ...baseConfig, ..._contractConfig }
+}
+
+export { getConfig, IConfig }
