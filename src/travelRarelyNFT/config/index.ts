@@ -1,4 +1,4 @@
-import { getBaseConfig, getContract, getProvider } from '../utils'
+import { getBaseConfig, getContract } from '../utils'
 
 interface IBaseConfig {
   Provider: string

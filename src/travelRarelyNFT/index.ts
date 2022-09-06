@@ -25,7 +25,6 @@ const travelRarelyNFT = async (tokenID: number): Promise<number[]> => {
   for (let i = tokenID; i <= MAX; i++) {
     try {
       let url: string = `${GATEWAY}/${CID}/${i}${endWithJSON ? '.json' : ''}`
-
       let resp = await axios.get(url)
 
       if (resp.status === 200) {
@@ -87,18 +86,9 @@ const mintNFT = async () => {
   await sendTrasaction()
 }
 
-;(async function () {
-  // 加载配置文件
-  config = await getConfig()
-
-  // 获取稀有 NFT ID
-  let rarelyID = await travelRarelyNFT(1)
-  console.log('Rarely ID List: ', rarelyID)
-
-  // 获取 Contract
+const listen = async (rarelyID: number[]) => {
   const contract = await getContract(config.address)
 
-  // 监听 MINT 事件
   console.log(`开始监听 ${config.EVENT} 事件`)
   contract.on(config.EVENT, (from, to, tokenID) => {
     const _tokenID = parseInt(tokenID)
@@ -107,9 +97,21 @@ const mintNFT = async () => {
     // 过滤要 Mint 的 ID 列表
     rarelyID = rarelyID.filter((e) => e >= _tokenID)
 
+    // Mint 操作
     if (rarelyID[0] === _tokenID + 1) {
-      // Mint 操作
       mintNFT()
     }
   })
+}
+
+;(async function () {
+  // 加载配置文件
+  config = await getConfig()
+
+  // 获取稀有 NFT ID
+  let rarelyID = await travelRarelyNFT(1)
+  console.log('Rarely ID List: ', rarelyID)
+
+  // 监听并 Mint
+  await listen(rarelyID)
 })()
