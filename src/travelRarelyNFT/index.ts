@@ -2,7 +2,13 @@ import axios from 'axios'
 
 import { ethers } from 'ethers'
 import { getConfig, IConfig } from './config/index'
-import { getContract, getData, getProvider, getWallet } from './utils'
+import {
+  getContract,
+  getData,
+  getMethodID,
+  getProvider,
+  getWallet,
+} from './utils'
 
 // 创建 provider
 const provider = getProvider()
@@ -104,14 +110,16 @@ const listen = async (rarelyID: number[]) => {
   })
 }
 
-;(async function () {
-  // 加载配置文件
-  config = await getConfig()
+// ;(async function () {
+//   // 加载配置文件
+//   config = await getConfig()
 
-  // 获取稀有 NFT ID
-  let rarelyID = await travelRarelyNFT(1)
-  console.log('Rarely ID List: ', rarelyID)
+//   // 获取稀有 NFT ID
+//   let rarelyID = await travelRarelyNFT(1)
+//   console.log('Rarely ID List: ', rarelyID)
 
-  // 监听并 Mint
-  await listen(rarelyID)
-})()
+//   // 监听并 Mint
+//   await listen(rarelyID)
+// })()
+
+console.log(ethers.utils.keccak256(Buffer.from('9855')))
